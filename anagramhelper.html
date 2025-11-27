@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="description" content="An interactive tool to help you solve anagrams and cryptic crosswords. Type in a set of letters and drag them freely around the screen to visualize potential answers and sort them into words.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drag & Drop Word Sorter</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Header Section --- */
+        header {
+            background: #ffffff;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        #wordInput {
+            width: 300px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+        }
+
+        button.clear-btn {
+            background-color: #ef4444;
+        }
+
+        button.clear-btn:hover {
+            background-color: #dc2626;
+        }
+
+        /* --- Main Layout Container --- */
+        #main-container {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- The Board (Left Side) --- */
+        #board {
+            flex-grow: 1;
+            position: relative;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+            cursor: crosshair;
+            overflow: hidden;
+        }
+
+        /* --- The Sidebar (Right Side) --- */
+        #sidebar {
+            width: 300px;
+            background-color: #ffffff;
+            border-left: 1px solid #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+            z-index: 500;
+        }
+
+        #sidebar h2 {
+            margin-top: 0;
+            font-size: 20px;
+            color: #334155;
+            margin-bottom: 15px;
+        }
+
+        #foundInput {
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+
+        #foundList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        #foundList li {
+            background-color: #f1f5f9;
+            margin-bottom: 8px;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 16px;
+            color: #1e293b;
+        }
+
+        #foundList li button {
+            background-color: transparent;
+            color: #94a3b8;
+            padding: 2px 8px;
+            font-size: 18px;
+            margin-left: 10px;
+        }
+
+        #foundList li button:hover {
+            background-color: #e2e8f0;
+            color: #ef4444;
+        }
+
+        /* --- The Tiles --- */
+        .tile {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: white;
+            border: 1px solid #94a3b8;
+            border-bottom: 4px solid #94a3b8;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #334155;
+            user-select: none;
+            cursor: grab;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+            touch-action: none;
+        }
+
+        .tile:active {
+            cursor: grabbing;
+            border-bottom: 1px solid #94a3b8;
+            transform: translateY(3px);
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* Mobile Responsive Adjustments */
+        @media (max-width: 768px) {
+            #main-container {
+                flex-direction: column;
+            }
+            #sidebar {
+                width: 100%;
+                height: 30%;
+                border-left: none;
+                border-top: 1px solid #cbd5e1;
+                box-sizing: border-box;
+            }
+            #wordInput {
+                width: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <input type="text" id="wordInput" placeholder="Enter letters..." onkeypress="handleGenerateEnter(event)">
+        <button onclick="generateTiles()">Generate</button>
+        <button class="clear-btn" onclick="clearBoard()">Reset</button>
+    </header>
+
+    <div id="main-container">
+        <div id="board">
+            </div>
+
+        <div id="sidebar">
+            <h2>Found Words</h2>
+            <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                <input type="text" id="foundInput" placeholder="Type found word" onkeypress="handleFoundEnter(event)">
+                <button onclick="addFoundWord()" style="padding: 10px;">Add</button>
+            </div>
+            <ul id="foundList">
+                </ul>
+        </div>
+    </div>
+
+    <script>
+        const board = document.getElementById('board');
+        const foundList = document.getElementById('foundList');
+        let zIndexCounter = 1;
+
+        // --- 1. Tile Generation Logic ---
+
+        function generateTiles() {
+            const input = document.getElementById('wordInput');
+            const text = input.value.trim();
+            
+            if (!text) return;
+
+            const chars = text.split('').filter(c => c !== ' ');
+
+            chars.forEach((char) => {
+                createTile(char);
+            });
+
+            input.value = '';
+        }
+
+        function handleGenerateEnter(e) {
+            if (e.key === 'Enter') generateTiles();
+        }
+
+        function createTile(char) {
+            const tile = document.createElement('div');
+            tile.classList.add('tile');
+            tile.innerText = char.toUpperCase();
+            
+            // Random position within the visible board area
+            // We use board.clientWidth to ensure we stay within bounds
+            const maxX = board.clientWidth - 60;
+            const maxY = board.clientHeight - 60;
+            
+            const randomX = Math.max(10, Math.random() * maxX);
+            const randomY = Math.max(10, Math.random() * maxY);
+            
+            tile.style.left = randomX + 'px';
+            tile.style.top = randomY + 'px';
+            tile.style.zIndex = zIndexCounter++;
+
+            addDragFunctionality(tile);
+            board.appendChild(tile);
+        }
+
+        function clearBoard() {
+            board.innerHTML = '';
+        }
+
+        // --- 2. Found Words List Logic ---
+
+        function addFoundWord() {
+            const input = document.getElementById('foundInput');
+            const text = input.value.trim();
+
+            if (!text) return;
+
+            const li = document.createElement('li');
+            li.innerHTML = `
+                ${text}
+                <button onclick="this.parentElement.remove()">×</button>
+            `;
+            
+            // Add new words to the top of the list
+            foundList.insertBefore(li, foundList.firstChild);
+            
+            input.value = '';
+            input.focus();
+        }
+
+        function handleFoundEnter(e) {
+            if (e.key === 'Enter') addFoundWord();
+        }
+
+        // --- 3. Drag Logic ---
+
+        function addDragFunctionality(element) {
+            let isDragging = false;
+            let startX, startY, initialLeft, initialTop;
+
+            const startDrag = (e) => {
+                // Only left click allows drag
+                if (e.type === 'mousedown' && e.button !== 0) return;
+
+                isDragging = true;
+                element.style.zIndex = ++zIndexCounter;
+                
+                const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+                const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+
+                startX = clientX;
+                startY = clientY;
+
+                initialLeft = element.offsetLeft;
+                initialTop = element.offsetTop;
+            };
+
+            const doDrag = (e) => {
+                if (!isDragging) return;
+                
+                // Prevent scrolling on touch devices while dragging a tile
+                if (e.type.includes('touch')) {
+                    e.preventDefault(); 
+                }
+
+                const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+                const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+
+                const dx = clientX - startX;
+                const dy = clientY - startY;
+
+                element.style.left = `${initialLeft + dx}px`;
+                element.style.top = `${initialTop + dy}px`;
+            };
+
+            const stopDrag = () => {
+                isDragging = false;
+            };
+
+            element.addEventListener('mousedown', startDrag);
+            window.addEventListener('mousemove', doDrag);
+            window.addEventListener('mouseup', stopDrag);
+
+            element.addEventListener('touchstart', startDrag, {passive: false});
+            window.addEventListener('touchmove', doDrag, {passive: false});
+            window.addEventListener('touchend', stopDrag);
+        }
+    </script>
+</body>
+</html>
