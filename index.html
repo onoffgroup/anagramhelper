@@ -19,14 +19,32 @@
         /* --- Header Section --- */
         header {
             background: #ffffff;
-            padding: 15px;
+            padding: 15px 20px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             z-index: 1000;
             display: flex;
+            justify-content: center; /* Centers the controls */
+            align-items: center;
+            position: relative; /* Allows absolute positioning of text */
+            flex-shrink: 0;
+            min-height: 60px;
+        }
+
+        .instruction-text {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #475569;
+            font-size: 14px;
+            max-width: 350px;
+            line-height: 1.4;
+        }
+
+        .controls {
+            display: flex;
             gap: 10px;
             align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
         }
 
         input[type="text"] {
@@ -37,7 +55,7 @@
         }
 
         #wordInput {
-            width: 300px;
+            width: 250px;
         }
 
         button {
@@ -49,6 +67,7 @@
             cursor: pointer;
             font-weight: bold;
             transition: background 0.2s;
+            white-space: nowrap;
         }
 
         button:hover {
@@ -167,14 +186,26 @@
             box-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
 
-        /* Mobile Responsive Adjustments */
-        @media (max-width: 768px) {
+        /* Responsive Breakpoint */
+        @media (max-width: 900px) {
+            header {
+                flex-direction: column;
+                padding: 15px;
+                height: auto;
+            }
+            .instruction-text {
+                position: static;
+                transform: none;
+                max-width: 100%;
+                text-align: center;
+                margin-bottom: 15px;
+            }
             #main-container {
                 flex-direction: column;
             }
             #sidebar {
                 width: 100%;
-                height: 30%;
+                height: 35%;
                 border-left: none;
                 border-top: 1px solid #cbd5e1;
                 box-sizing: border-box;
@@ -188,9 +219,15 @@
 <body>
 
     <header>
-        <input type="text" id="wordInput" placeholder="Enter letters..." onkeypress="handleGenerateEnter(event)">
-        <button onclick="generateTiles()">Generate</button>
-        <button class="clear-btn" onclick="clearBoard()">Reset</button>
+        <div class="instruction-text">
+            This anagram helper helps you visualize word combinations by moving letters freely and tracking your discoveries in the sidebar.
+        </div>
+        
+        <div class="controls">
+            <input type="text" id="wordInput" placeholder="Enter letters..." onkeypress="handleGenerateEnter(event)">
+            <button onclick="generateTiles()">Generate</button>
+            <button class="clear-btn" onclick="clearBoard()">Reset</button>
+        </div>
     </header>
 
     <div id="main-container">
@@ -240,7 +277,6 @@
             tile.innerText = char.toUpperCase();
             
             // Random position within the visible board area
-            // We use board.clientWidth to ensure we stay within bounds
             const maxX = board.clientWidth - 60;
             const maxY = board.clientHeight - 60;
             
@@ -291,7 +327,6 @@
             let startX, startY, initialLeft, initialTop;
 
             const startDrag = (e) => {
-                // Only left click allows drag
                 if (e.type === 'mousedown' && e.button !== 0) return;
 
                 isDragging = true;
@@ -310,7 +345,6 @@
             const doDrag = (e) => {
                 if (!isDragging) return;
                 
-                // Prevent scrolling on touch devices while dragging a tile
                 if (e.type.includes('touch')) {
                     e.preventDefault(); 
                 }
